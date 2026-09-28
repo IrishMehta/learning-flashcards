@@ -6,7 +6,8 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "check": "tsc --noEmit"
+    "check": "tsc --noEmit",
+    "import:flashcards": "node --env-file=.env scripts/import-flashcards.mjs"
   },
   "dependencies": {
     "@libsql/client": "^0.18.0",

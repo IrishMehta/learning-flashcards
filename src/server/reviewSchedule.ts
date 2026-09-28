@@ -1,4 +1,4 @@
-import type { FlashcardProgress, FlashcardRating } from "../types";
+import type { FlashcardProgress, FlashcardRating } from "../types.js";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 const AGAIN_DELAY_MS = 10 * 60 * 1000;

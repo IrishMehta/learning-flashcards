@@ -9,4 +9,14 @@ export default defineConfig({
       "@": path.resolve(import.meta.dirname, "src"),
     },
   },
+  server: process.env.DEV_API_PROXY
+    ? {
+        proxy: {
+          "/api": {
+            target: process.env.DEV_API_PROXY,
+            changeOrigin: true,
+          },
+        },
+      }
+    : undefined,
 });

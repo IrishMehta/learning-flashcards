@@ -1,7 +1,7 @@
 import { createClient, type Client, type InValue } from "@libsql/client";
 
-import { FLASHCARD_RATINGS, type FlashcardProgress, type FlashcardRating } from "../types";
-import { calculateReviewSchedule } from "./reviewSchedule";
+import { FLASHCARD_RATINGS, type FlashcardProgress, type FlashcardRating } from "../types.js";
+import { calculateReviewSchedule } from "./reviewSchedule.js";
 
 let client: Client | undefined;
 
@@ -42,7 +42,10 @@ export async function listFlashcards(category = "", cardType = "") {
       FROM flashcards${where} ORDER BY category, topic, id`,
     args,
   });
-  return result.rows;
+  return result.rows.map((row) => ({
+    ...row,
+    needsReview: Boolean(row.needsReview),
+  }));
 }
 
 export async function listProgress() {

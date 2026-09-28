@@ -1,5 +1,5 @@
-import { listProgress } from "../../src/server/database";
-import type { ApiRequest, ApiResponse } from "../../src/server/http";
+import { listProgress } from "../../src/server/database.js";
+import type { ApiRequest, ApiResponse } from "../../src/server/http.js";
 
 export default async function handler(req: ApiRequest, res: ApiResponse) {
   if (req.method !== "GET") {
