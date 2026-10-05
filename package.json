@@ -7,7 +7,9 @@
     "dev": "vite",
     "build": "vite build",
     "check": "tsc --noEmit",
-    "import:flashcards": "node --env-file=.env scripts/import-flashcards.mjs"
+    "import:flashcards": "node --env-file=.env scripts/import-flashcards.mjs",
+    "generate:taxonomy": "node scripts/generate-taxonomy-mapping.mjs && node scripts/refine-taxonomy-mapping.mjs",
+    "migrate:taxonomy": "node --env-file=.env scripts/migrate-flashcard-taxonomy.mjs"
   },
   "dependencies": {
     "@libsql/client": "^0.18.0",
@@ -21,6 +23,8 @@
     "lucide-react": "^0.453.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
+    "react-markdown": "^10.1.0",
+    "remark-gfm": "^4.0.1",
     "tailwind-merge": "^2.6.0"
   },
   "devDependencies": {

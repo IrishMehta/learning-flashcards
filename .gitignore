@@ -1,9 +1,12 @@
 node_modules/
 dist/
-.env
-.env.local
+
+# Local credentials and deployment metadata
+.env*
+!.env.example
 .vercel/
 
-.vercel
-.env*
+# Generated local taxonomy output
+data/
+
 /agents.md

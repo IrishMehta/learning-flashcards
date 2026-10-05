@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { lazy, Suspense, useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import {
   ArrowRight,
@@ -7,6 +7,7 @@ import {
   ChevronLeft,
   ChevronRight,
   CircleHelp,
+  ExternalLink,
   Filter,
   Layers3,
   type LucideIcon,
@@ -37,9 +38,12 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 
 const INITIAL_VISIBLE_CARDS = 12;
 const FILTER_STORAGE_KEY = "career-flashcards-filters";
+const MarkdownContent = lazy(() => import("@/components/MarkdownContent"));
 
 type SavedFilters = {
   category: string;
+  topic: string;
+  subtopic: string;
   cardType: string;
   difficulty: string;
   search: string;
@@ -47,6 +51,8 @@ type SavedFilters = {
 
 const DEFAULT_FILTERS: SavedFilters = {
   category: "All",
+  topic: "All",
+  subtopic: "All",
   cardType: "All",
   difficulty: "All",
   search: "",
@@ -61,6 +67,8 @@ function loadSavedFilters(): SavedFilters {
 
     return {
       category: typeof saved.category === "string" ? saved.category : DEFAULT_FILTERS.category,
+      topic: typeof saved.topic === "string" ? saved.topic : DEFAULT_FILTERS.topic,
+      subtopic: typeof saved.subtopic === "string" ? saved.subtopic : DEFAULT_FILTERS.subtopic,
       cardType: typeof saved.cardType === "string" ? saved.cardType : DEFAULT_FILTERS.cardType,
       difficulty: typeof saved.difficulty === "string" ? saved.difficulty : DEFAULT_FILTERS.difficulty,
       search: typeof saved.search === "string" ? saved.search : DEFAULT_FILTERS.search,
@@ -81,6 +89,11 @@ function parseList(value: string) {
 
 function formatLabel(value: string) {
   return value.replace(/_/g, " ").replace(/\b\w/g, (letter) => letter.toUpperCase());
+}
+
+function googleSearchUrl(subtopic: string, question: string) {
+  const query = `${formatLabel(subtopic)} ${question}`;
+  return `https://www.google.com/search?${new URLSearchParams({ q: query }).toString()}`;
 }
 
 function formatNextReview(dueAt: string) {
@@ -132,9 +145,10 @@ function FlashcardAnswer({ card }: { card: Flashcard }) {
   const mistakes = parseList(card.commonMistakes);
 
   return (
-    <div className="space-y-5 text-[15px] leading-7 sm:text-base">
+    <Suspense fallback={<div className="rounded-2xl bg-secondary/65 p-4 text-card-foreground sm:p-5">Loading formatted answer...</div>}>
+      <div className="space-y-5 text-[15px] leading-7 sm:text-base">
       <div className="rounded-2xl bg-secondary/65 p-4 text-card-foreground sm:p-5">
-        <p>{card.answer}</p>
+        <MarkdownContent content={card.answer} />
       </div>
       {keyPoints.length > 0 && (
         <section className="rounded-2xl border border-emerald-200/70 bg-emerald-50/75 p-4 dark:border-emerald-400/20 dark:bg-emerald-400/10">
@@ -142,7 +156,7 @@ function FlashcardAnswer({ card }: { card: Flashcard }) {
             <Zap size={14} /> Key points
           </p>
           <ul className="space-y-2 pl-5 marker:text-emerald-500">
-            {keyPoints.map((point) => <li key={point} className="list-disc">{point}</li>)}
+            {keyPoints.map((point) => <li key={point} className="list-disc"><MarkdownContent content={point} compact /></li>)}
           </ul>
         </section>
       )}
@@ -151,8 +165,22 @@ function FlashcardAnswer({ card }: { card: Flashcard }) {
           <p className="mb-2 flex items-center gap-2 text-xs font-bold uppercase tracking-[0.14em] text-violet-800 dark:text-violet-200">
             <CircleHelp size={14} /> Follow-ups
           </p>
-          <ul className="space-y-2">
-            {followUps.map((question) => <li key={question}>• {question}</li>)}
+          <ul className="space-y-2 pl-5 marker:text-violet-500">
+            {followUps.map((question) => (
+              <li key={question} className="list-disc">
+                <div className="flex items-baseline gap-2">
+                  <div className="min-w-0 flex-1"><MarkdownContent content={question} compact /></div>
+                  <a
+                    href={googleSearchUrl(card.subtopic, question)}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="inline-flex shrink-0 items-center gap-1 text-xs font-semibold text-violet-700 underline decoration-violet-400/60 underline-offset-2 hover:text-violet-950 dark:text-violet-200 dark:hover:text-violet-50"
+                  >
+                    link <ExternalLink size={12} aria-hidden="true" />
+                  </a>
+                </div>
+              </li>
+            ))}
           </ul>
         </section>
       )}
@@ -160,11 +188,12 @@ function FlashcardAnswer({ card }: { card: Flashcard }) {
         <section className="rounded-2xl border border-rose-200/70 bg-rose-50/70 p-4 dark:border-rose-400/20 dark:bg-rose-400/10">
           <p className="mb-2 text-xs font-bold uppercase tracking-[0.14em] text-rose-800 dark:text-rose-200">Watch out for</p>
           <ul className="space-y-2 pl-5 marker:text-rose-400">
-            {mistakes.map((mistake) => <li key={mistake} className="list-disc">{mistake}</li>)}
+            {mistakes.map((mistake) => <li key={mistake} className="list-disc"><MarkdownContent content={mistake} compact /></li>)}
           </ul>
         </section>
       )}
-    </div>
+      </div>
+    </Suspense>
   );
 }
 
@@ -245,7 +274,9 @@ function FlashcardItem({
         </div>
         <span className={`shrink-0 rounded-full px-2.5 py-1 text-[11px] font-bold ${status.className}`}>{status.label}</span>
       </div>
-      <p className="mb-2 line-clamp-1 text-[11px] font-bold uppercase tracking-[0.12em] text-muted-foreground">{card.topic}</p>
+      <p className="mb-2 line-clamp-1 text-[11px] font-bold uppercase tracking-[0.12em] text-muted-foreground">
+        {formatLabel(card.topic)} · {formatLabel(card.subtopic)}
+      </p>
       <h2 className="font-display text-[1.14rem] font-semibold leading-[1.45] text-card-foreground sm:text-xl">{card.front}</h2>
       <div className="mt-auto flex items-center justify-between border-t border-border/65 pt-4 text-xs font-semibold text-primary">
         <span>Tap to practice</span>
@@ -300,7 +331,7 @@ function FlashcardFocusDialog({
                 <span className="ml-auto text-xs font-semibold text-muted-foreground">{position + 1} / {total}</span>
               </div>
               <DialogDescription className="text-xs font-bold uppercase tracking-[0.15em] text-primary/80">
-                {card.topic}
+                {formatLabel(card.topic)} · {formatLabel(card.subtopic)}
               </DialogDescription>
               <DialogTitle className="font-display text-[1.7rem] font-semibold leading-[1.25] sm:text-4xl sm:leading-[1.2]">
                 {card.front}
@@ -371,6 +402,8 @@ export default function FlashcardsPage() {
   const { toast } = useToast();
   const [initialFilters] = useState(loadSavedFilters);
   const [category, setCategory] = useState(initialFilters.category);
+  const [topic, setTopic] = useState(initialFilters.topic);
+  const [subtopic, setSubtopic] = useState(initialFilters.subtopic);
   const [cardType, setCardType] = useState(initialFilters.cardType);
   const [difficulty, setDifficulty] = useState(initialFilters.difficulty);
   const [search, setSearch] = useState(initialFilters.search);
@@ -402,37 +435,61 @@ export default function FlashcardsPage() {
   });
 
   const categories = useMemo(() => Array.from(new Set(cards.map((card) => card.category))).sort(), [cards]);
+  const topics = useMemo(() => Array.from(new Set(
+    cards.filter((card) => category === "All" || card.category === category).map((card) => card.topic),
+  )).sort(), [cards, category]);
+  const subtopics = useMemo(() => Array.from(new Set(
+    cards
+      .filter((card) =>
+        (category === "All" || card.category === category) &&
+        (topic === "All" || card.topic === topic)
+      )
+      .map((card) => card.subtopic),
+  )).sort(), [cards, category, topic]);
   const cardTypes = useMemo(() => Array.from(new Set(cards.map((card) => card.cardType))).sort(), [cards]);
   const progressByCard = useMemo(() => new Map(progressEntries.map((entry) => [entry.cardId, entry])), [progressEntries]);
   const reviewedCount = useMemo(() => cards.filter((card) => (progressByCard.get(card.id)?.reviewCount ?? 0) > 0).length, [cards, progressByCard]);
   const dueCount = useMemo(() => cards.filter((card) => isDue(progressByCard.get(card.id))).length, [cards, progressByCard]);
-  const activeFilterCount = [category, cardType, difficulty].filter((value) => value !== "All").length;
+  const activeFilterCount = [category, topic, subtopic, cardType, difficulty].filter((value) => value !== "All").length;
 
   const filteredCards = useMemo(() => {
     const normalizedSearch = search.trim().toLowerCase();
     return cards
       .filter((card) =>
         (category === "All" || card.category === category) &&
+        (topic === "All" || card.topic === topic) &&
+        (subtopic === "All" || card.subtopic === subtopic) &&
         (cardType === "All" || card.cardType === cardType) &&
         (difficulty === "All" || card.difficulty === difficulty) &&
-        (!normalizedSearch || `${card.front} ${card.topic} ${card.answer}`.toLowerCase().includes(normalizedSearch))
+        (!normalizedSearch || `${card.front} ${formatLabel(card.topic)} ${formatLabel(card.subtopic)} ${card.answer}`.toLowerCase().includes(normalizedSearch))
       )
       .sort((a, b) => dueTime(progressByCard.get(a.id)) - dueTime(progressByCard.get(b.id)));
-  }, [cards, category, cardType, difficulty, search, progressByCard]);
+  }, [cards, category, topic, subtopic, cardType, difficulty, search, progressByCard]);
 
   const visibleCards = filteredCards.slice(0, visibleCount);
   const selectedCardIndex = filteredCards.findIndex((card) => card.id === selectedCardId);
   const selectedCard = selectedCardIndex >= 0 ? filteredCards[selectedCardIndex] : undefined;
 
-  useEffect(() => setVisibleCount(INITIAL_VISIBLE_CARDS), [category, cardType, difficulty, search]);
+  useEffect(() => setVisibleCount(INITIAL_VISIBLE_CARDS), [category, topic, subtopic, cardType, difficulty, search]);
+
+  useEffect(() => {
+    if (topic !== "All" && !topics.includes(topic)) {
+      setTopic("All");
+      setSubtopic("All");
+    }
+  }, [topic, topics]);
+
+  useEffect(() => {
+    if (subtopic !== "All" && !subtopics.includes(subtopic)) setSubtopic("All");
+  }, [subtopic, subtopics]);
 
   useEffect(() => {
     try {
-      window.localStorage.setItem(FILTER_STORAGE_KEY, JSON.stringify({ category, cardType, difficulty, search }));
+      window.localStorage.setItem(FILTER_STORAGE_KEY, JSON.stringify({ category, topic, subtopic, cardType, difficulty, search }));
     } catch {
       // Storage may be unavailable in restricted or private browsing contexts.
     }
-  }, [category, cardType, difficulty, search]);
+  }, [category, topic, subtopic, cardType, difficulty, search]);
 
   const setCardRevealed = (cardId: number, revealed: boolean) => {
     setRevealedCardIds((current) => {
@@ -483,7 +540,15 @@ export default function FlashcardsPage() {
   };
 
   const resetFilters = () => {
-    setCategory("All"); setCardType("All"); setDifficulty("All"); setSearch("");
+    setCategory("All"); setTopic("All"); setSubtopic("All"); setCardType("All"); setDifficulty("All"); setSearch("");
+  };
+
+  const changeCategory = (value: string) => {
+    setCategory(value); setTopic("All"); setSubtopic("All");
+  };
+
+  const changeTopic = (value: string) => {
+    setTopic(value); setSubtopic("All");
   };
 
   const rateAndAdvance = (rating: FlashcardRating) => {
@@ -568,7 +633,7 @@ export default function FlashcardsPage() {
                   value={search}
                   onChange={(event) => setSearch(event.target.value)}
                   type="search"
-                  placeholder="Search questions or topics"
+                  placeholder="Search questions, topics, or subtopics"
                   className="min-h-12 w-full rounded-xl border border-border bg-background pl-10 pr-10 text-sm outline-none transition-shadow placeholder:text-muted-foreground/75 focus:border-primary focus:ring-4 focus:ring-primary/10"
                 />
                 {search && <button onClick={() => setSearch("")} className="absolute right-2.5 top-1/2 grid h-8 w-8 -translate-y-1/2 place-items-center rounded-lg text-muted-foreground hover:bg-muted" aria-label="Clear search"><X size={15} /></button>}
@@ -580,10 +645,18 @@ export default function FlashcardsPage() {
             </div>
 
             {filtersOpen && (
-              <div className="mt-3 grid gap-3 border-t border-border/70 pt-4 sm:grid-cols-3">
-                <FilterSelect label="Category" value={category} onChange={setCategory}>
+              <div className="mt-3 grid gap-3 border-t border-border/70 pt-4 sm:grid-cols-2 lg:grid-cols-5">
+                <FilterSelect label="Category" value={category} onChange={changeCategory}>
                   <SelectItem value="All">All categories</SelectItem>
                   {categories.map((value) => <SelectItem key={value} value={value}>{formatLabel(value)}</SelectItem>)}
+                </FilterSelect>
+                <FilterSelect label="Topic" value={topic} onChange={changeTopic}>
+                  <SelectItem value="All">All topics</SelectItem>
+                  {topics.map((value) => <SelectItem key={value} value={value}>{formatLabel(value)}</SelectItem>)}
+                </FilterSelect>
+                <FilterSelect label="Subtopic" value={subtopic} onChange={setSubtopic}>
+                  <SelectItem value="All">All subtopics</SelectItem>
+                  {subtopics.map((value) => <SelectItem key={value} value={value}>{formatLabel(value)}</SelectItem>)}
                 </FilterSelect>
                 <FilterSelect label="Card type" value={cardType} onChange={setCardType}>
                   <SelectItem value="All">All card types</SelectItem>
@@ -593,7 +666,7 @@ export default function FlashcardsPage() {
                   <SelectItem value="All">All difficulties</SelectItem>
                   {CARD_DIFFICULTIES.map((value) => <SelectItem key={value} value={value}>{formatLabel(value)}</SelectItem>)}
                 </FilterSelect>
-                {activeFilterCount > 0 && <button onClick={resetFilters} className="text-left text-xs font-bold text-primary hover:underline sm:col-span-3">Reset all filters</button>}
+                {activeFilterCount > 0 && <button onClick={resetFilters} className="text-left text-xs font-bold text-primary hover:underline sm:col-span-2 lg:col-span-5">Reset all filters</button>}
               </div>
             )}
           </div>

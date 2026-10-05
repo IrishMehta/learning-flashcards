@@ -53,7 +53,7 @@ The dashboard puts the next study action first: learners can see their progress,
 
 Career Flashcards is more than a static card gallery. It combines a responsive React interface, a serverless API, durable review history, and a lightweight spaced-repetition scheduler.
 
-- Search and filter cards by category, card type, and difficulty.
+- Search and filter cards by category, topic, subtopic, card type, and difficulty.
 - Prioritize cards that are due for review.
 - Study in a focused card dialog with keyboard navigation.
 - Reveal detailed answers, key points, follow-up questions, and common mistakes.
@@ -104,6 +104,10 @@ src/server/database.ts        Turso queries and progress persistence
 src/server/reviewSchedule.ts  Scheduling rules
 src/types.ts                  Shared application types
 scripts/import-flashcards.mjs Validated JSON-to-Turso importer
+scripts/generate-taxonomy-mapping.mjs  Complete card-level taxonomy classifier
+scripts/refine-taxonomy-mapping.mjs    Compact taxonomy rules and validation
+scripts/migrate-flashcard-taxonomy.mjs  Verified Turso taxonomy migration
+data/flashcard-taxonomy-mapping.json    Reviewed topic/subtopic mapping
 docs/images/                  UI screenshots used by this README
 ```
 
@@ -118,7 +122,7 @@ TURSO_AUTH_TOKEN=your-token
 
 Prepare a JSON file with a top-level `cards` array. Each card must contain:
 
-- `card_key`, `card_type`, `category`, `topic`, `difficulty`, `front`, and `answer` as non-empty strings
+- `card_key`, `card_type`, `category`, `topic`, `subtopic`, `difficulty`, `front`, and `answer` as non-empty strings
 - `key_points`, `follow_up_questions`, and `common_mistakes` as arrays of strings
 - `needs_review` as a boolean
 - Optional `source_reference`, `review_reason`, and integer `question_id` values
@@ -138,3 +142,27 @@ npm run import:flashcards -- path/to/cards.json
 The importer upserts cards by `card_key`: new keys are inserted and existing keys are updated. Review history is kept because existing card rows retain their IDs. Re-running the same import is safe.
 
 The importer also removes generated `:chatgpt-content-reference{...}` markers, which are not useful card content. Other malformed JSON is rejected before Turso is changed.
+
+## Apply the reviewed taxonomy mapping
+
+Regenerate the mapping from the flashcard API, then compact it into the controlled 17-topic catalog:
+
+```bash
+npm run generate:taxonomy
+```
+
+The compact taxonomy permits at most six topics per category and three to seven dependent subtopics per topic. Generation fails if a card is unclassified, a mapping rule is unused, a topic has fewer than five cards, or those menu-size bounds are exceeded.
+
+Validate the mapping against every live card without changing Turso:
+
+```bash
+npm run migrate:taxonomy -- --dry-run
+```
+
+Apply the schema and data migration:
+
+```bash
+npm run migrate:taxonomy
+```
+
+The migration adds `subtopic` when needed, updates cards by `card_key` and current `id`, and verifies that card identities, review-history attachments, and all mapped taxonomy values remain intact. It is safe to rerun after a successful migration.

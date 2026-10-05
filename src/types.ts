@@ -9,6 +9,7 @@ export interface Flashcard {
   cardType: string;
   category: string;
   topic: string;
+  subtopic: string;
   difficulty: string;
   front: string;
   answer: string;

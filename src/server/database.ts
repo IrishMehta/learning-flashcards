@@ -20,7 +20,17 @@ export function isFlashcardRating(value: unknown): value is FlashcardRating {
   return typeof value === "string" && FLASHCARD_RATINGS.includes(value as FlashcardRating);
 }
 
-export async function listFlashcards(category = "", cardType = "") {
+export async function listFlashcards({
+  category = "",
+  topic = "",
+  subtopic = "",
+  cardType = "",
+}: {
+  category?: string;
+  topic?: string;
+  subtopic?: string;
+  cardType?: string;
+} = {}) {
   const conditions: string[] = [];
   const args: InValue[] = [];
   if (category) {
@@ -31,15 +41,23 @@ export async function listFlashcards(category = "", cardType = "") {
     conditions.push("card_type = ?");
     args.push(cardType);
   }
+  if (topic) {
+    conditions.push("topic = ?");
+    args.push(topic);
+  }
+  if (subtopic) {
+    conditions.push("subtopic = ?");
+    args.push(subtopic);
+  }
   const where = conditions.length ? ` WHERE ${conditions.join(" AND ")}` : "";
   const result = await getClient().execute({
-    sql: `SELECT id, card_key AS cardKey, card_type AS cardType, category, topic,
+    sql: `SELECT id, card_key AS cardKey, card_type AS cardType, category, topic, subtopic,
       difficulty, front, answer, key_points AS keyPoints,
       follow_up_questions AS followUpQuestions, common_mistakes AS commonMistakes,
       source_reference AS sourceReference, needs_review AS needsReview,
       review_reason AS reviewReason, question_id AS questionId,
       created_at AS createdAt, updated_at AS updatedAt
-      FROM flashcards${where} ORDER BY category, topic, id`,
+      FROM flashcards${where} ORDER BY category, topic, subtopic, id`,
     args,
   });
   return result.rows.map((row) => ({

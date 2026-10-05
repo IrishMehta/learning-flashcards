@@ -8,6 +8,7 @@ const REQUIRED_STRINGS = [
   "card_type",
   "category",
   "topic",
+  "subtopic",
   "difficulty",
   "front",
   "answer",
@@ -105,14 +106,15 @@ async function main() {
   await db.batch(
     cards.map((card) => ({
       sql: `INSERT INTO flashcards (
-        card_key, card_type, category, topic, difficulty, front, answer,
+        card_key, card_type, category, topic, subtopic, difficulty, front, answer,
         key_points, follow_up_questions, common_mistakes, source_reference,
         needs_review, review_reason, question_id, created_at, updated_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       ON CONFLICT(card_key) DO UPDATE SET
         card_type = excluded.card_type,
         category = excluded.category,
         topic = excluded.topic,
+        subtopic = excluded.subtopic,
         difficulty = excluded.difficulty,
         front = excluded.front,
         answer = excluded.answer,
@@ -129,6 +131,7 @@ async function main() {
         card.card_type,
         card.category,
         card.topic,
+        card.subtopic,
         card.difficulty,
         card.front,
         card.answer,
@@ -147,18 +150,27 @@ async function main() {
   );
 
   const verified = await db.execute({
-    sql: `SELECT card_key FROM flashcards WHERE card_key IN (${placeholders})`,
+    sql: `SELECT card_key, topic, subtopic FROM flashcards WHERE card_key IN (${placeholders})`,
     args: keys,
   });
+  const verifiedByKey = new Map(verified.rows.map((row) => [String(row.card_key), row]));
   const verifiedKeys = new Set(verified.rows.map((row) => String(row.card_key)));
   const missingKeys = keys.filter((key) => !verifiedKeys.has(key));
   if (missingKeys.length > 0) {
     fail(`Import verification failed; missing card_key values: ${missingKeys.join(", ")}`);
   }
 
+  const taxonomyMismatches = cards.filter((card) => {
+    const row = verifiedByKey.get(card.card_key);
+    return !row || row.topic !== card.topic || row.subtopic !== card.subtopic;
+  });
+  if (taxonomyMismatches.length > 0) {
+    fail(`Import verification failed for taxonomy values: ${taxonomyMismatches.map((card) => card.card_key).join(", ")}`);
+  }
+
   const inserted = keys.filter((key) => !existingKeys.has(key)).length;
   console.log(`Imported ${cards.length} flashcards: ${inserted} inserted, ${cards.length - inserted} updated.`);
-  console.log(`Verified all ${verifiedKeys.size} requested card keys in Turso.`);
+  console.log(`Verified all ${verifiedKeys.size} requested card keys and taxonomy values in Turso.`);
 }
 
 main().catch((error) => {
